@@ -84,6 +84,12 @@ namespace dae
 		Matrix translationTransform{};
 		Matrix scaleTransform{};
 
+		Vector3 minAABB;
+		Vector3 maxAABB;
+
+		Vector3 transformedMinAABB;
+		Vector3 transformedMaxAABB;
+
 		std::vector<Vector3> transformedPositions{};
 		std::vector<Vector3> transformedNormals{};
 
@@ -123,20 +129,93 @@ namespace dae
 
 		void CalculateNormals()
 		{
-			assert(false && "No Implemented Yet!");
+			normals.clear();
+
+			normals.resize(indices.size() / 3);
+
+			for (int i{}; i < normals.size(); i++)
+			{
+				Vector3 a = positions[indices[3 * i + 1]] - positions[indices[3 * i]];
+				Vector3 b = positions[indices[3 * i + 2]] - positions[indices[3 * i]];
+				normals[i] = Vector3::Cross(a, b);
+				normals[i].Normalize();
+			}
 		}
 
 		void UpdateTransforms()
 		{
-			assert(false && "No Implemented Yet!");
-			//Calculate Final Transform 
-			//const auto finalTransform = ...
+			Matrix pointMatrix{ scaleTransform * rotationTransform * translationTransform };
+			Matrix normalMatrix{ rotationTransform * translationTransform };
 
-			//Transform Positions (positions > transformedPositions)
-			//...
+			transformedPositions.clear();
+			transformedNormals.clear();
 
-			//Transform Normals (normals > transformedNormals)
-			//...
+			transformedPositions.resize(positions.size());
+			transformedNormals.resize(normals.size());
+			
+			for (int i{}; i < positions.size(); i++)
+			{
+				transformedPositions[i] = pointMatrix.TransformPoint(positions[i]);
+			}
+			UpdateTransformedAABB(pointMatrix);
+
+			for (int i{}; i < normals.size(); i++)
+			{
+				transformedNormals[i] = normalMatrix.TransformVector(normals[i]);
+			}
+		}
+
+		void UpdateAABB()
+		{
+			if (positions.size() > 0)
+			{
+				minAABB = positions[0];
+				maxAABB = positions[0];
+				for (auto& p : positions)
+				{
+					minAABB = Vector3::Min(p, minAABB);
+					maxAABB = Vector3::Max(p, maxAABB);
+				}
+			}
+		}
+
+		void UpdateTransformedAABB(const Matrix& finalTransform)
+		{
+			//AABB update:be careful -> transform the 8 vertices of the aabb
+			//an calculate new min and max
+			Vector3 tMinAABB = finalTransform.TransformPoint(minAABB);
+			Vector3 tMaxAABB = tMinAABB;
+			//(xmax, ymin, zmin)
+			Vector3 tAABB = finalTransform.TransformPoint(maxAABB.x, minAABB.y, minAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			// (xmax, ymin, zmax)
+			tAABB = finalTransform.TransformPoint(maxAABB.x, minAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			//(xmin, ymin, zmax)
+			tAABB = finalTransform.TransformPoint(minAABB.x, minAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			//(xmin, ymax, zmin)
+			tAABB = finalTransform.TransformPoint(minAABB.x, maxAABB.y, minAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			//(xmax, ymax, zmin)
+			tAABB = finalTransform.TransformPoint(maxAABB.x, maxAABB.y, minAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			//(xmax, ymax, zmax)
+			tAABB = finalTransform.TransformPoint(maxAABB.x, maxAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+			//(xmin, ymax, zmax)
+			tAABB = finalTransform.TransformPoint(minAABB.x, maxAABB.y, maxAABB.z);
+			tMinAABB = Vector3::Min(tAABB, tMinAABB);
+			tMaxAABB = Vector3::Max(tAABB, tMaxAABB);
+
+			transformedMinAABB = tMinAABB;
+			transformedMaxAABB = tMaxAABB;
 		}
 	};
 #pragma endregion
@@ -163,8 +242,8 @@ namespace dae
 		Vector3 origin{};
 		Vector3 direction{};
 
-		float min{ 0.0001f };
-		float max{ FLT_MAX };
+		const float min{ 0.0001f };
+		const float max{ FLT_MAX };
 	};
 
 	struct HitRecord
@@ -177,4 +256,17 @@ namespace dae
 		unsigned char materialIndex{ 0 };
 	};
 #pragma endregion
+
+#pragma region BVH
+	struct BVHNode
+	{
+		Vector3 aabbMin{};
+		Vector3 aabbMax{};
+		unsigned int leftChild{};
+		unsigned int firstIndice{};
+		unsigned int indicesCount{};
+		bool IsLeaf() { return indicesCount > 0; };
+	};
+
+#pragma endregion bvh
 }

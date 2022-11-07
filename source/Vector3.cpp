@@ -45,16 +45,16 @@ namespace dae {
 
 	float Vector3::Dot(const Vector3& v1, const Vector3& v2)
 	{
-		//todo W1
-		assert(false && "Not Implemented Yet");
-		return {};
+		return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 	}
 
 	Vector3 Vector3::Cross(const Vector3& v1, const Vector3& v2)
 	{
-		//todo W1
-		assert(false && "Not Implemented Yet");
-		return {};
+		Vector3 cross{};
+		cross.x = v1.y * v2.z - v2.y * v1.z;
+		cross.y = v1.z * v2.x - v2.z * v1.x;
+		cross.z = v1.x * v2.y - v1.y * v2.x;
+		return {cross};
 	}
 
 	Vector3 Vector3::Project(const Vector3& v1, const Vector3& v2)
@@ -156,6 +156,27 @@ namespace dae {
 		if (index == 0) return x;
 		if (index == 1) return y;
 		return z;
+	}
+
+
+	Vector3 Vector3::Max(const Vector3& v1, const Vector3& v2)
+	{
+		return
+		{
+			std::max(v1.x, v2.x),
+			std::max(v1.y, v2.y),
+			std::max(v1.z, v2.z)
+		};
+	}
+
+	Vector3 Vector3::Min(const Vector3& v1, const Vector3& v2)
+	{
+		return
+		{
+			std::min(v1.x, v2.x),
+			std::min(v1.y, v2.y),
+			std::min(v1.z, v2.z)
+		};
 	}
 #pragma endregion
 }
