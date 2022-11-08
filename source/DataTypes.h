@@ -4,8 +4,22 @@
 #include "Math.h"
 #include "vector"
 
+#define useBVH
+
 namespace dae
 {
+#pragma region BVH
+	struct BVHNode
+	{
+		Vector3 aabbMin{};
+		Vector3 aabbMax{};
+		unsigned int leftChild{};
+		unsigned int firstIndice{};
+		unsigned int indicesCount{};
+		bool IsLeaf() const { return indicesCount > 0; };
+	};
+#pragma endregion bvh
+
 #pragma region GEOMETRY
 	struct Sphere
 	{
@@ -90,6 +104,10 @@ namespace dae
 		Vector3 transformedMinAABB;
 		Vector3 transformedMaxAABB;
 
+		BVHNode* pBVHnode{};
+		unsigned int rootBvhNodeIdx{};
+		unsigned int bvhNodesUsed{};
+
 		std::vector<Vector3> transformedPositions{};
 		std::vector<Vector3> transformedNormals{};
 
@@ -157,12 +175,16 @@ namespace dae
 			{
 				transformedPositions[i] = pointMatrix.TransformPoint(positions[i]);
 			}
-			UpdateTransformedAABB(pointMatrix);
 
 			for (int i{}; i < normals.size(); i++)
 			{
 				transformedNormals[i] = normalMatrix.TransformVector(normals[i]);
 			}
+#ifdef useBVH
+			UpdateBVH();
+#else
+			UpdateTransformedAABB(pointMatrix);
+#endif // useBVH
 		}
 
 		void UpdateAABB()
@@ -217,6 +239,96 @@ namespace dae
 			transformedMinAABB = tMinAABB;
 			transformedMaxAABB = tMaxAABB;
 		}
+
+		void UpdateBVH()
+		{
+			//maximum amount of nodes is needed is (amount of triangles * 2 - 1)
+			//if (bvhNodes.size() == 0)bvhNodes.resize(normals.size() * 2 - 1);
+
+			bvhNodesUsed = 0;
+
+			BVHNode& root = pBVHnode[rootBvhNodeIdx];
+			root.leftChild = 0;
+			root.firstIndice = 0;
+			root.indicesCount = static_cast<unsigned int>(indices.size());
+
+			UpdateBVHNodeBounds(rootBvhNodeIdx);
+
+			Subdivide(rootBvhNodeIdx);
+		}
+
+		inline void UpdateBVHNodeBounds(int nodeIdx)
+		{
+			BVHNode& node = pBVHnode[nodeIdx];
+			node.aabbMin = Vector3{FLT_MAX, FLT_MAX, FLT_MAX };
+			node.aabbMax = Vector3{ FLT_MIN, FLT_MIN, FLT_MIN };
+
+			for (size_t i{ node.firstIndice }; i < node.firstIndice + node.indicesCount; ++i)
+			{
+				Vector3& curVertex{ transformedPositions[indices[i]] };
+				node.aabbMin = Vector3::Min(node.aabbMin, curVertex);
+				node.aabbMax = Vector3::Max(node.aabbMax, curVertex);
+			}
+		}
+
+		inline void Subdivide(int nodeIdx)
+		{
+			// terminate recursion
+			BVHNode& node = pBVHnode[nodeIdx];
+			int maxTrianglesPerNode{ 2 };
+			if (node.indicesCount <= maxTrianglesPerNode*3) return;
+
+			Vector3 extent = node.aabbMax - node.aabbMin;
+			int axis = 0;
+			if (extent.y > extent.x) axis = 1;
+			if (extent.z > extent[axis]) axis = 2;
+			float splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
+
+
+			int i = node.firstIndice;
+			int j = i + node.indicesCount - 1;
+			while (i <= j)
+			{
+				Vector3 centroid{ (transformedPositions[indices[i]] + transformedPositions[indices[i+2]] + transformedPositions[indices[i+2]]) };
+
+				if (centroid[axis] < splitPos)
+				{
+					i += 3;
+				}
+				else
+				{
+					std::swap(indices[i], indices[j - 2]);
+					std::swap(indices[i + 1], indices[j - 1]);
+					std::swap(indices[i + 2], indices[j]);
+					std::swap(normals[i / 3], normals[(j - 2) / 3]);
+					std::swap(transformedNormals[i / 3], transformedNormals[(j - 2) / 3]);
+
+					j -= 3;
+				}
+			}
+			//stop split if one of the sides is empty
+			int leftCount = i - node.firstIndice;
+			if (leftCount == 0 || leftCount == node.indicesCount) return;
+			// create child nodes
+			int leftChildIdx = ++bvhNodesUsed;
+			int rightChildIdx = ++bvhNodesUsed;
+
+			node.leftChild = leftChildIdx;
+
+			pBVHnode[leftChildIdx].firstIndice = node.firstIndice;
+			pBVHnode[leftChildIdx].indicesCount = leftCount;
+
+			pBVHnode[rightChildIdx].firstIndice = i;
+			pBVHnode[rightChildIdx].indicesCount = node.indicesCount - leftCount;
+
+			node.indicesCount = 0;
+
+			UpdateBVHNodeBounds(leftChildIdx);
+			UpdateBVHNodeBounds(rightChildIdx);
+			// recurse
+			Subdivide(leftChildIdx);
+			Subdivide(rightChildIdx);
+		}
 	};
 #pragma endregion
 #pragma region LIGHT
@@ -256,17 +368,4 @@ namespace dae
 		unsigned char materialIndex{ 0 };
 	};
 #pragma endregion
-
-#pragma region BVH
-	struct BVHNode
-	{
-		Vector3 aabbMin{};
-		Vector3 aabbMax{};
-		unsigned int leftChild{};
-		unsigned int firstIndice{};
-		unsigned int indicesCount{};
-		bool IsLeaf() { return indicesCount > 0; };
-	};
-
-#pragma endregion bvh
 }

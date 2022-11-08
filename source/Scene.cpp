@@ -33,11 +33,13 @@ namespace dae {
 		{
 			HitRecord tempRecord{};
 
-			GeometryUtils::HitTest_Sphere(sphere, ray, tempRecord);
-			//only overwrite the closest hit if the tempHitRecord is closer than the closestHit
-			if (tempRecord.didHit && tempRecord.t < closestHit.t && tempRecord.t > ray.min)
+			if (GeometryUtils::HitTest_Sphere(sphere, ray, tempRecord))
 			{
-				closestHit = tempRecord;
+				//only overwrite the closest hit if the tempHitRecord is closer than the closestHit
+				if (tempRecord.didHit && tempRecord.t < closestHit.t && tempRecord.t > ray.min)
+				{
+					closestHit = tempRecord;
+				}
 			}
 		}
 
@@ -46,10 +48,12 @@ namespace dae {
 		{
 			HitRecord tempRecord{};
 
-			GeometryUtils::HitTest_Plane(plane, ray, tempRecord);
-			if (tempRecord.didHit && tempRecord.t < closestHit.t && tempRecord.didHit && tempRecord.t > ray.min)
+			if (GeometryUtils::HitTest_Plane(plane, ray, tempRecord))
 			{
-				closestHit = tempRecord;
+				if (tempRecord.didHit && tempRecord.t < closestHit.t && tempRecord.didHit && tempRecord.t > ray.min)
+				{
+					closestHit = tempRecord;
+				}
 			}
 		}
 
@@ -57,10 +61,12 @@ namespace dae {
 		{
 			HitRecord tempRecord{};
 
-			GeometryUtils::HitTest_TriangleMesh(mesh, ray, tempRecord);
-			if (tempRecord.didHit && tempRecord.t < closestHit.t && tempRecord.didHit && tempRecord.t > ray.min)
+			if (GeometryUtils::HitTest_TriangleMesh(mesh, ray, tempRecord))
 			{
-				closestHit = tempRecord;
+				if (tempRecord.didHit && tempRecord.t < closestHit.t && tempRecord.didHit && tempRecord.t > ray.min)
+				{
+					closestHit = tempRecord;
+				}
 			}
 		}
 
@@ -258,7 +264,7 @@ namespace dae {
 
 	void Scene_W4_Bunny::Initialize()
 	{
-		m_Camera = { { 0.f, 1.f, -5.f }, 45.f };
+		m_Camera = { { 0.f, 3.f, -10.f }, 45.f };
 
 		//Materials
 		const auto matLambert_GrayBlue = AddMaterial(new Material_Lambert({ 0.49f, 0.57f, 0.57f }, 1.f));
@@ -278,8 +284,9 @@ namespace dae {
 			m_pMesh->normals,
 			m_pMesh->indices);
 
+		m_pMesh->pBVHnode = new BVHNode[m_pMesh->indices.size() / 3 * 2 - 1]{};
+
 		m_pMesh->Scale({ 2.f, 2.f, 2.f });
-		m_pMesh->Translate({ 0.f, -0.2f, 0.f });
 
 		m_pMesh->CalculateNormals();
 
@@ -358,7 +365,7 @@ namespace dae {
 	{
 		Scene::Update(pTimer);
 
-		const auto yawAngle = (cos(pTimer->GetTotal()) + 1.f) / 2.f * PI_2;
+		const auto yawAngle = (cos(pTimer->GetTotal()) + 1.f) * 0.5f * PI_2;
 		for (const auto m : m_pMeshes)
 		{
 			m->RotateY(yawAngle);

@@ -16,7 +16,7 @@ namespace dae
 			origin{_origin},
 			fovAngle{ _fovAngle * TO_RADIANS}
 		{
-			fov = tanf(fovAngle / 2.f);
+			fov = tanf(fovAngle * 0.5f);
 			cameraToWorld = CalculateCameraToWorld();
 		}
 

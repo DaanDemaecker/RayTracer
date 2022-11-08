@@ -45,8 +45,8 @@ int main(int argc, char* args[])
 	const auto pTimer = new Timer();
 	const auto pRenderer = new Renderer(pWindow);
 
-	const auto pScene = new Scene_W4_ReferenceScene();
-	//const auto pScene = new Scene_W4_Bunny();
+	//const auto pScene = new Scene_W4_ReferenceScene();
+	const auto pScene = new Scene_W4_Bunny(); //before bvh::2.5fps
 	pScene->Initialize();
 
 	//Start loop
