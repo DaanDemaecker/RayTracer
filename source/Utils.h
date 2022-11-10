@@ -366,7 +366,7 @@ namespace dae
 		inline void IntersectBVH(const TriangleMesh& mesh, Triangle& triangle, const Ray& ray, HitRecord& hitRecord, bool& hasHit, bool ignoreHitRecord, const size_t nodeIdx)
 		{
 			//get current node
-			const BVHNode& node{ mesh.pBVHnode[nodeIdx] };
+			const BVHNode& node{ mesh.pBVHNodes[nodeIdx] };
 
 			//do broad slabtest before continuing
 			if (!SlabTest_TraingleMesh(ray, node.aabbMin, node.aabbMax)) return;

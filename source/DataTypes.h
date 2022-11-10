@@ -32,6 +32,11 @@ namespace dae
 			bmax.y = std::max(bmax.y, point.y);
 			bmax.z = std::max(bmax.z, point.z);
 		}
+		void Grow(const aabb& bounds)
+		{
+			bmin = Vector3::Min(bmin, bounds.bmin);
+			bmin = Vector3::Max(bmin, bounds.bmin);
+		}
 
 		float Area()
 		{
@@ -126,7 +131,7 @@ namespace dae
 		Vector3 transformedMinAABB;
 		Vector3 transformedMaxAABB;
 
-		BVHNode* pBVHnode{};
+		BVHNode* pBVHNodes{};
 		unsigned int rootBvhNodeIdx{};
 		unsigned int bvhNodesUsed{};
 
@@ -265,10 +270,10 @@ namespace dae
 		void UpdateBVH()
 		{
 			//maximum amount of nodes is needed is (amount of triangles * 2 - 1)
-			if (!pBVHnode)pBVHnode = new BVHNode[indices.size() / 3 * 2 - 1]{};
+			if (!pBVHNodes)pBVHNodes = new BVHNode[indices.size() / 3 * 2 - 1]{};
 			bvhNodesUsed = 0;
 
-			BVHNode& root = pBVHnode[rootBvhNodeIdx];
+			BVHNode& root = pBVHNodes[rootBvhNodeIdx];
 			root.leftChild = 0;
 			root.firstIndice = 0;
 			root.indicesCount = static_cast<unsigned int>(indices.size());
@@ -276,12 +281,11 @@ namespace dae
 			UpdateBVHNodeBounds(rootBvhNodeIdx);
 
 			Subdivide(rootBvhNodeIdx);
-
 		}
 
 		inline void UpdateBVHNodeBounds(int nodeIdx)
 		{
-			BVHNode& node{ pBVHnode[nodeIdx] };
+			BVHNode& node{ pBVHNodes[nodeIdx] };
 			node.aabbMin = Vector3{FLT_MAX, FLT_MAX, FLT_MAX };
 			node.aabbMax = Vector3{ FLT_MIN, FLT_MIN, FLT_MIN };
 
@@ -296,7 +300,7 @@ namespace dae
 		inline void Subdivide(int nodeIdx)
 		{
 			// terminate recursion
-			BVHNode& node = pBVHnode[nodeIdx];
+			BVHNode& node = pBVHNodes[nodeIdx];
 			int maxTrianglesPerNode{ 2 };
 			if (node.indicesCount <= maxTrianglesPerNode*3) return;
 
@@ -319,13 +323,6 @@ namespace dae
 					}
 				}
 			}
-
-			/*Vector3 extent = node.aabbMax - node.aabbMin;
-			int axis = 0;
-			if (extent.y > extent.x) axis = 1;
-			if (extent.z > extent[axis]) axis = 2;
-			float splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;*/
-
 
 			int i = node.firstIndice;
 			int j = i + node.indicesCount - 1;
@@ -357,11 +354,11 @@ namespace dae
 
 			node.leftChild = leftChildIdx;
 
-			pBVHnode[leftChildIdx].firstIndice = node.firstIndice;
-			pBVHnode[leftChildIdx].indicesCount = leftCount;
+			pBVHNodes[leftChildIdx].firstIndice = node.firstIndice;
+			pBVHNodes[leftChildIdx].indicesCount = leftCount;
 
-			pBVHnode[rightChildIdx].firstIndice = i;
-			pBVHnode[rightChildIdx].indicesCount = node.indicesCount - leftCount;
+			pBVHNodes[rightChildIdx].firstIndice = i;
+			pBVHNodes[rightChildIdx].indicesCount = node.indicesCount - leftCount;
 
 			node.indicesCount = 0;
 
