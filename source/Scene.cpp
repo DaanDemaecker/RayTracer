@@ -284,13 +284,11 @@ namespace dae {
 			m_pMesh->normals,
 			m_pMesh->indices);
 
-		m_pMesh->pBVHnode = new BVHNode[m_pMesh->indices.size() / 3 * 2 - 1]{};
-
 		m_pMesh->Scale({ 2.f, 2.f, 2.f });
 
-		m_pMesh->CalculateNormals();
-
+#ifndef useBVH
 		m_pMesh->UpdateAABB();
+#endif // !useBVH
 		m_pMesh->UpdateTransforms();
 
 		//Light

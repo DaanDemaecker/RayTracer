@@ -18,6 +18,28 @@ namespace dae
 		unsigned int indicesCount{};
 		bool IsLeaf() const { return indicesCount > 0; };
 	};
+
+	struct aabb
+	{
+		Vector3 bmin{ 1e30f, 1e30f, 1e30f }, bmax{ -1e30 , -1e30 , -1e30 };
+		void Grow(Vector3 point)
+		{
+			bmin.x = std::min(bmin.x, point.x);
+			bmin.y = std::min(bmin.y, point.y);
+			bmin.z = std::min(bmin.z, point.z);
+
+			bmax.x = std::max(bmax.x, point.x);
+			bmax.y = std::max(bmax.y, point.y);
+			bmax.z = std::max(bmax.z, point.z);
+		}
+
+		float Area()
+		{
+			Vector3 e = bmax - bmin;
+			return e.x * e.y + e.y * e.z + e.z * e.x;
+		}
+
+	};
 #pragma endregion bvh
 
 #pragma region GEOMETRY
@@ -243,8 +265,7 @@ namespace dae
 		void UpdateBVH()
 		{
 			//maximum amount of nodes is needed is (amount of triangles * 2 - 1)
-			//if (bvhNodes.size() == 0)bvhNodes.resize(normals.size() * 2 - 1);
-
+			if (!pBVHnode)pBVHnode = new BVHNode[indices.size() / 3 * 2 - 1]{};
 			bvhNodesUsed = 0;
 
 			BVHNode& root = pBVHnode[rootBvhNodeIdx];
@@ -255,11 +276,12 @@ namespace dae
 			UpdateBVHNodeBounds(rootBvhNodeIdx);
 
 			Subdivide(rootBvhNodeIdx);
+
 		}
 
 		inline void UpdateBVHNodeBounds(int nodeIdx)
 		{
-			BVHNode& node = pBVHnode[nodeIdx];
+			BVHNode& node{ pBVHnode[nodeIdx] };
 			node.aabbMin = Vector3{FLT_MAX, FLT_MAX, FLT_MAX };
 			node.aabbMax = Vector3{ FLT_MIN, FLT_MIN, FLT_MIN };
 
@@ -278,20 +300,40 @@ namespace dae
 			int maxTrianglesPerNode{ 2 };
 			if (node.indicesCount <= maxTrianglesPerNode*3) return;
 
-			Vector3 extent = node.aabbMax - node.aabbMin;
+			//determine best split axis using SAH
+			int bestAxis = -1;
+			float bestPos = 0, bestCost = 1e30f;
+			for (int axis = 0; axis < 3; axis++)
+			{
+				for (size_t i = 0; i < node.indicesCount; i += 3)
+				{
+					Triangle triangle = Triangle{ transformedPositions[indices[node.leftChild + i]], transformedPositions[indices[node.leftChild + i + 1]] , transformedPositions[indices[node.leftChild + i + 2]] };
+					Vector3 centroid{ (triangle.v0 + triangle.v1 + triangle.v2) / 3.0f };
+					float candidatePos = centroid[axis];
+					float cost = EvaluateSAH(node, axis, candidatePos);
+					if (cost < bestCost)
+					{
+						bestPos = candidatePos;
+						bestAxis = axis;
+						bestCost = cost;
+					}
+				}
+			}
+
+			/*Vector3 extent = node.aabbMax - node.aabbMin;
 			int axis = 0;
 			if (extent.y > extent.x) axis = 1;
 			if (extent.z > extent[axis]) axis = 2;
-			float splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;
+			float splitPos = node.aabbMin[axis] + extent[axis] * 0.5f;*/
 
 
 			int i = node.firstIndice;
 			int j = i + node.indicesCount - 1;
 			while (i <= j)
 			{
-				Vector3 centroid{ (transformedPositions[indices[i]] + transformedPositions[indices[i+2]] + transformedPositions[indices[i+2]]) };
+				Vector3 centroid{ (transformedPositions[indices[i]] + transformedPositions[indices[i+2]] + transformedPositions[indices[i+2]])/3.0f };
 
-				if (centroid[axis] < splitPos)
+				if (centroid[bestAxis] < bestPos)
 				{
 					i += 3;
 				}
@@ -329,6 +371,37 @@ namespace dae
 			Subdivide(leftChildIdx);
 			Subdivide(rightChildIdx);
 		}
+
+		float EvaluateSAH(BVHNode& node, int axis, float pos)
+		{
+			//determine triangle counts and bounds for axis
+			aabb leftBox, rightBox;
+			int leftCount = 0, rightCount = 0;
+			for (size_t i = 0; i < node.indicesCount; i += 3)
+			{
+				Triangle triangle = Triangle{ transformedPositions[indices[node.leftChild + i]], transformedPositions[indices[node.leftChild + i + 1]] , transformedPositions[indices[node.leftChild + i + 2]] };
+				Vector3 centroid{ (triangle.v0 + triangle.v1 + triangle.v2) / 3.0f };
+
+				if (centroid[axis] < pos)
+				{
+					leftCount++;
+					leftBox.Grow(triangle.v0);
+					leftBox.Grow(triangle.v1);
+					leftBox.Grow(triangle.v2);
+				}
+				else
+				{
+					rightCount++;
+					rightBox.Grow(triangle.v0);
+					rightBox.Grow(triangle.v1);
+					rightBox.Grow(triangle.v2);
+				}
+
+			}
+			float cost = leftCount * leftBox.Area() + rightCount * rightBox.Area();
+
+			return cost > 0 ? cost : 1e30f;
+		}
 	};
 #pragma endregion
 #pragma region LIGHT
@@ -351,8 +424,19 @@ namespace dae
 #pragma region MISC
 	struct Ray
 	{
+		Ray(const Vector3& origin, const Vector3& direction, float min = 0.00001f, float max = FLT_MAX)
+			:origin{origin},
+			direction{direction},
+			inverseDirection{Vector3{1/direction.x, 1/direction.y, 1/direction.z}},
+			min{min},
+			max{max}
+		{
+
+		}
+
 		Vector3 origin{};
 		Vector3 direction{};
+		Vector3 inverseDirection{};
 
 		const float min{ 0.0001f };
 		const float max{ FLT_MAX };

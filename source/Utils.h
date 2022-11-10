@@ -342,20 +342,20 @@ namespace dae
 #pragma region TriangeMesh HitTest
 		inline bool SlabTest_TraingleMesh(const Ray& ray, const Vector3& AABBMin, const Vector3& AABBMax)
 		{
-			float tx1 = (AABBMin.x - ray.origin.x) / ray.direction.x;
-			float tx2 = (AABBMax.x - ray.origin.x) / ray.direction.x;
+			float tx1 = (AABBMin.x - ray.origin.x) * ray.inverseDirection.x;
+			float tx2 = (AABBMax.x - ray.origin.x) * ray.inverseDirection.x;
 
 			float tmin = std::min(tx1, tx2);
 			float tmax = std::max(tx1, tx2);
 
-			float ty1 = (AABBMin.y - ray.origin.y) / ray.direction.y;
-			float ty2 = (AABBMax.y - ray.origin.y) / ray.direction.y;
+			float ty1 = (AABBMin.y - ray.origin.y) * ray.inverseDirection.y;
+			float ty2 = (AABBMax.y - ray.origin.y) * ray.inverseDirection.y;
 
 			tmin = std::min(ty1, ty2);
 			tmax = std::max(ty1, ty2);
 
-			float tz1 = (AABBMin.z - ray.origin.z) / ray.direction.z;
-			float tz2 = (AABBMax.z - ray.origin.z) / ray.direction.z;
+			float tz1 = (AABBMin.z - ray.origin.z) * ray.inverseDirection.z;
+			float tz2 = (AABBMax.z - ray.origin.z) * ray.inverseDirection.z;
 
 			tmin = std::min(tz1, tz2);
 			tmax = std::max(tz1, tz2);
@@ -365,45 +365,46 @@ namespace dae
 
 		inline void IntersectBVH(const TriangleMesh& mesh, Triangle& triangle, const Ray& ray, HitRecord& hitRecord, bool& hasHit, bool ignoreHitRecord, const size_t nodeIdx)
 		{
-			const BVHNode& node = mesh.pBVHnode[nodeIdx];
+			//get current node
+			const BVHNode& node{ mesh.pBVHnode[nodeIdx] };
 
+			//do broad slabtest before continuing
 			if (!SlabTest_TraingleMesh(ray, node.aabbMin, node.aabbMax)) return;
 
-			if (!SlabTest_TraingleMesh(ray, node.aabbMin, node.aabbMax)) return;
+			//if the current node is not the end, search the child nodes
 			if (!node.IsLeaf())
 			{
 				IntersectBVH(mesh, triangle, ray, hitRecord, hasHit, ignoreHitRecord, node.leftChild);
 				IntersectBVH(mesh, triangle, ray, hitRecord, hasHit, ignoreHitRecord, node.leftChild + 1);
+				return;
 			}
-			else
+			HitRecord tempRecord{};
+			//for every triangle in the node
+			for (size_t idx{}; idx < node.indicesCount; idx += 3)
 			{
-				HitRecord tempRecord{};
-				//for every triangle in the node
-				for (size_t idx{}; idx < node.indicesCount; idx += 3)
-				{
-					// Set the position and normal of the current triangle to the triangle object
-					triangle.v0 = mesh.transformedPositions[mesh.indices[node.firstIndice + idx]];
-					triangle.v1 = mesh.transformedPositions[mesh.indices[node.firstIndice + idx + 1]];
-					triangle.v2 = mesh.transformedPositions[mesh.indices[node.firstIndice + idx + 2]];
-					triangle.normal = mesh.transformedNormals[(node.firstIndice + idx) / 3];
+				// Set the position and normal of the current triangle to the triangle object
+				triangle.v0 = mesh.transformedPositions[mesh.indices[node.firstIndice + idx]];
+				triangle.v1 = mesh.transformedPositions[mesh.indices[node.firstIndice + idx + 1]];
+				triangle.v2 = mesh.transformedPositions[mesh.indices[node.firstIndice + idx + 2]];
+				triangle.normal = mesh.transformedNormals[(node.firstIndice + idx) / 3];
 
-					bool hit{};
+				bool hit{};
 #ifdef useMollerTrumbore 
-					hit = HitTest_MollerTrumbore(triangle, ray, tempRecord, ignoreHitRecord);
+				hit = HitTest_MollerTrumbore(triangle, ray, tempRecord, ignoreHitRecord);
 #else
-					hit = HitTest_Triangle(triangle, ray, tempRecord, ignoreHitRecord);
+				hit = HitTest_Triangle(triangle, ray, tempRecord, ignoreHitRecord);
 #endif // useMollerTrumbore 
-					if (!hit)continue;
+				if (!hit)continue;
 
-					hasHit = true;
-					if (ignoreHitRecord)
-						return;
+				hasHit = true;
+				if (ignoreHitRecord)
+					return;
 
-					if (tempRecord.t < hitRecord.t)
-					{
-						hitRecord = tempRecord;
-					}
+				if (tempRecord.t < hitRecord.t)
+				{
+					hitRecord = tempRecord;
 				}
+
 			}
 		}
 

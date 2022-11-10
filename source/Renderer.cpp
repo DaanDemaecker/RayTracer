@@ -156,7 +156,6 @@ void dae::Renderer::RenderPixel(Scene* pScene, uint32_t pixelIndex, float fov, f
 
 	if (closestHit.didHit)
 	{
-		finalColor = ColorRGB{ 0, 0, 0 };
 
 		//check if the ray reaches a light
 		for (auto& light : lights)
