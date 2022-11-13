@@ -279,7 +279,7 @@ namespace dae {
 		
 		m_pMesh = AddTriangleMesh(TriangleCullMode::BackFaceCulling, matLambert_White);
 
-		Utils::ParseOBJ("Resources/lowpoly_bunny.obj",
+		Utils::ParseOBJ("Resources/lowpoly_bunny2.obj",
 			m_pMesh->positions,
 			m_pMesh->normals,
 			m_pMesh->indices);

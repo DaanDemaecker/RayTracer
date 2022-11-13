@@ -114,6 +114,12 @@ namespace dae
 			UpdateTransforms();
 		}
 
+		~TriangleMesh()
+		{
+			delete[] pBVHNodes;
+			pBVHNodes = nullptr;
+		}
+
 		std::vector<Vector3> positions{};
 		std::vector<Vector3> normals{};
 		std::vector<int> indices{};

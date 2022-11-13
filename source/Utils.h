@@ -340,7 +340,7 @@ namespace dae
 		}
 #pragma endregion
 #pragma region TriangeMesh HitTest
-		inline bool SlabTest_TraingleMesh(const Ray& ray, const Vector3& AABBMin, const Vector3& AABBMax)
+		inline bool SlabTest(const Ray& ray, const Vector3& AABBMin, const Vector3& AABBMax)
 		{
 			float tx1 = (AABBMin.x - ray.origin.x) * ray.inverseDirection.x;
 			float tx2 = (AABBMax.x - ray.origin.x) * ray.inverseDirection.x;
@@ -351,14 +351,14 @@ namespace dae
 			float ty1 = (AABBMin.y - ray.origin.y) * ray.inverseDirection.y;
 			float ty2 = (AABBMax.y - ray.origin.y) * ray.inverseDirection.y;
 
-			tmin = std::min(ty1, ty2);
-			tmax = std::max(ty1, ty2);
+			tmin = std::max(tmin, std::min(ty1, ty2));
+			tmax = std::min(tmax, std::max(ty1, ty2));
 
 			float tz1 = (AABBMin.z - ray.origin.z) * ray.inverseDirection.z;
 			float tz2 = (AABBMax.z - ray.origin.z) * ray.inverseDirection.z;
 
-			tmin = std::min(tz1, tz2);
-			tmax = std::max(tz1, tz2);
+			tmin = std::max(tmin, std::min(tz1, tz2));
+			tmax = std::min(tmax, std::max(tz1, tz2));
 
 			return tmax > 0 && tmax >= tmin;
 		}
@@ -369,7 +369,7 @@ namespace dae
 			const BVHNode& node{ mesh.pBVHNodes[nodeIdx] };
 
 			//do broad slabtest before continuing
-			if (!SlabTest_TraingleMesh(ray, node.aabbMin, node.aabbMax)) return;
+			if (!SlabTest(ray, node.aabbMin, node.aabbMax)) return;
 
 			//if the current node is not the end, search the child nodes
 			if (!node.IsLeaf())
